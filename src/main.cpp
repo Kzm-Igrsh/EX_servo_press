@@ -18,10 +18,13 @@ const int ANGLE_90 = 90;
 
 // テスト設定
 const int HOLD_TIME = 2000;  // 各角度で2秒保持
-const int PATTERN_INTERVAL = 3000;  // 10パターンのインターバル3秒
 
 // 長押し判定時間（ミリ秒）
 const int LONG_PRESS_TIME = 1000;  // 1秒以上で長押し
+
+// 10パターンの動作時間（1000-3000ms）とインターバル（0-500ms）
+const int patternHoldTimes[10] = {1800, 2600, 1200, 2200, 1500, 2800, 1000, 2000, 1400, 2500};  // ms
+const int patternIntervals[10] = {300, 100, 450, 200, 0, 350, 500, 150, 250, 50};  // ms (0-500ms)
 
 void testServoAngles(Servo &servo, int servoNum, int pin) {
   M5.Display.clear();
@@ -104,7 +107,7 @@ void runAllTests() {
   delay(2000);
 }
 
-void executePattern(int servoNum, int angle, int moveNum) {
+void executePattern(int servoNum, int angle, int moveNum, int holdTime, int intervalTime) {
   // 全サーボを0°に戻す
   servo1.write(ANGLE_0);
   servo2.write(ANGLE_0);
@@ -148,18 +151,21 @@ void executePattern(int servoNum, int angle, int moveNum) {
   M5.Display.printf("Servo %d\n", servoNum);
   M5.Display.println(angleName);
   M5.Display.setTextSize(1);
-  M5.Display.printf("G%d", pin);
+  M5.Display.printf("G%d\n", pin);
+  M5.Display.printf("Hold:%dms\n", holdTime);
+  M5.Display.printf("Wait:%dms", intervalTime);
   
-  Serial.printf("Move %d/10: Servo%d G%d %s\n", moveNum, servoNum, pin, angleName);
+  Serial.printf("Move %d/10: Servo%d G%d %s Hold:%dms Wait:%dms\n", 
+                moveNum, servoNum, pin, angleName, holdTime, intervalTime);
   
   // 指定角度に移動して保持
   targetServo->write(angle);
-  delay(HOLD_TIME);
+  delay(holdTime);
   
   // 0°に戻す
   targetServo->write(ANGLE_0);
   
-  delay(PATTERN_INTERVAL);  // 3秒インターバル
+  delay(intervalTime);
 }
 
 void run10Pattern() {
@@ -172,17 +178,17 @@ void run10Pattern() {
   
   Serial.println("\n=== 10 Pattern Fixed Sequence ===");
   
-  // よりバラバラで同じ箇所連続も含むパターン（全箇所×全角度を網羅）
-  executePattern(3, ANGLE_45, 1);   // Servo3 45°
-  executePattern(1, ANGLE_90, 2);   // Servo1 90°
-  executePattern(1, ANGLE_45, 3);   // Servo1 45°（連続＆角度変更）
-  executePattern(2, ANGLE_90, 4);   // Servo2 90°
-  executePattern(3, ANGLE_90, 5);   // Servo3 90°（角度変更）
-  executePattern(2, ANGLE_45, 6);   // Servo2 45°（角度変更）
-  executePattern(3, ANGLE_45, 7);   // Servo3 45°
-  executePattern(3, ANGLE_45, 8);   // Servo3 45°
-  executePattern(2, ANGLE_90, 9);   // Servo2 90°
-  executePattern(1, ANGLE_90, 10);  // Servo1 90°
+  // 固定の10パターン（順番と角度は固定、時間だけバラバラ）
+  executePattern(3, ANGLE_45, 1, patternHoldTimes[0], patternIntervals[0]);   // Servo3 45° 1800ms / 300ms
+  executePattern(1, ANGLE_90, 2, patternHoldTimes[1], patternIntervals[1]);   // Servo1 90° 2600ms / 100ms
+  executePattern(1, ANGLE_45, 3, patternHoldTimes[2], patternIntervals[2]);   // Servo1 45° 1200ms / 450ms
+  executePattern(2, ANGLE_90, 4, patternHoldTimes[3], patternIntervals[3]);   // Servo2 90° 2200ms / 200ms
+  executePattern(3, ANGLE_90, 5, patternHoldTimes[4], patternIntervals[4]);   // Servo3 90° 1500ms / 0ms
+  executePattern(2, ANGLE_45, 6, patternHoldTimes[5], patternIntervals[5]);   // Servo2 45° 2800ms / 350ms
+  executePattern(3, ANGLE_45, 7, patternHoldTimes[6], patternIntervals[6]);   // Servo3 45° 1000ms / 500ms
+  executePattern(3, ANGLE_45, 8, patternHoldTimes[7], patternIntervals[7]);   // Servo3 45° 2000ms / 150ms
+  executePattern(2, ANGLE_90, 9, patternHoldTimes[8], patternIntervals[8]);   // Servo2 90° 1400ms / 250ms
+  executePattern(1, ANGLE_90, 10, patternHoldTimes[9], patternIntervals[9]);  // Servo1 90° 2500ms / 50ms
   
   // 全サーボを0°に戻す
   servo1.write(ANGLE_0);
@@ -258,7 +264,7 @@ void loop() {
     unsigned long pressDuration = millis() - pressStartTime;
     
     if (pressDuration >= LONG_PRESS_TIME) {
-      // 長押し：10パターン実行（不規則順）
+      // 長押し：10パターン実行
       Serial.printf("Long press detected (%lums)\n", pressDuration);
       run10Pattern();
     } else {
