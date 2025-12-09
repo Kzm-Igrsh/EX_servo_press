@@ -2,19 +2,19 @@
 #include <ESP32Servo.h>
 
 // 3つのサーボ
-Servo servo1;
-Servo servo2;
-Servo servo3;
+Servo servoLeft;
+Servo servoCenter;
+Servo servoRight;
 
 // サーボピン
-const int SERVO1_PIN = 5;  // G5
-const int SERVO2_PIN = 6;  // G6
-const int SERVO3_PIN = 7;  // G7
+const int SERVO_LEFT_PIN = 5;    // G5 - Left
+const int SERVO_CENTER_PIN = 6;  // G6 - Center
+const int SERVO_RIGHT_PIN = 7;   // G7 - Right
 
 // 角度設定
-const int ANGLE_0 = 0;
-const int ANGLE_45 = 45;
-const int ANGLE_90 = 90;
+const int ANGLE_STOP = 0;    // Stop
+const int ANGLE_WEAK = 45;   // Weak
+const int ANGLE_STRONG = 90; // Strong
 
 // テスト設定
 const int HOLD_TIME = 2000;  // 各角度で2秒保持
@@ -26,47 +26,47 @@ const int LONG_PRESS_TIME = 1000;  // 1秒以上で長押し
 const int patternHoldTimes[10] = {1800, 2600, 1200, 2200, 1500, 2800, 1000, 2000, 1400, 2500};  // ms
 const int patternIntervals[10] = {300, 100, 450, 200, 0, 350, 500, 150, 250, 50};  // ms (0-500ms)
 
-void testServoAngles(Servo &servo, int servoNum, int pin) {
+void testServoAngles(Servo &servo, const char* position, int pin) {
   M5.Display.clear();
   M5.Display.setCursor(0, 0);
   M5.Display.setTextSize(2);
-  M5.Display.printf("Servo %d\n", servoNum);
+  M5.Display.printf("%s\n", position);
   M5.Display.println("");
   M5.Display.setTextSize(1);
   M5.Display.printf("Pin: G%d\n", pin);
   M5.Display.println("");
   
-  Serial.printf("=== Servo%d G%d Test ===\n", servoNum, pin);
+  Serial.printf("=== %s G%d Test ===\n", position, pin);
   
-  // 0°
-  servo.write(ANGLE_0);
+  // Stop
+  servo.write(ANGLE_STOP);
   M5.Display.fillRect(0, 80, 128, 48, BLACK);
   M5.Display.setCursor(0, 80);
   M5.Display.setTextSize(3);
-  M5.Display.printf("0 deg");
-  Serial.println("Angle: 0 deg");
+  M5.Display.printf("Stop");
+  Serial.println("Angle: Stop (0 deg)");
   delay(HOLD_TIME);
   
-  // 45°
-  servo.write(ANGLE_45);
+  // Weak
+  servo.write(ANGLE_WEAK);
   M5.Display.fillRect(0, 80, 128, 48, BLACK);
   M5.Display.setCursor(0, 80);
   M5.Display.setTextSize(3);
-  M5.Display.printf("45 deg");
-  Serial.println("Angle: 45 deg");
+  M5.Display.printf("Weak");
+  Serial.println("Angle: Weak (45 deg)");
   delay(HOLD_TIME);
   
-  // 90°
-  servo.write(ANGLE_90);
+  // Strong
+  servo.write(ANGLE_STRONG);
   M5.Display.fillRect(0, 80, 128, 48, BLACK);
   M5.Display.setCursor(0, 80);
   M5.Display.setTextSize(3);
-  M5.Display.printf("90 deg");
-  Serial.println("Angle: 90 deg");
+  M5.Display.printf("Strong");
+  Serial.println("Angle: Strong (90 deg)");
   delay(HOLD_TIME);
   
-  // 0°に戻す
-  servo.write(ANGLE_0);
+  // Stop
+  servo.write(ANGLE_STOP);
   delay(500);
 }
 
@@ -80,16 +80,16 @@ void runAllTests() {
   
   Serial.println("=== Starting Full Servo Test ===");
   
-  // Servo 1 (G5)
-  testServoAngles(servo1, 1, SERVO1_PIN);
+  // Left (G5)
+  testServoAngles(servoLeft, "Left", SERVO_LEFT_PIN);
   delay(1000);
   
-  // Servo 2 (G6)
-  testServoAngles(servo2, 2, SERVO2_PIN);
+  // Center (G6)
+  testServoAngles(servoCenter, "Center", SERVO_CENTER_PIN);
   delay(1000);
   
-  // Servo 3 (G7)
-  testServoAngles(servo3, 3, SERVO3_PIN);
+  // Right (G7)
+  testServoAngles(servoRight, "Right", SERVO_RIGHT_PIN);
   delay(500);
   
   Serial.println("=== Full Test Complete ===");
@@ -107,38 +107,34 @@ void runAllTests() {
   delay(2000);
 }
 
-void executePattern(int servoNum, int angle, int moveNum, int holdTime, int intervalTime) {
-  // 全サーボを0°に戻す
-  servo1.write(ANGLE_0);
-  servo2.write(ANGLE_0);
-  servo3.write(ANGLE_0);
+void executePattern(const char* position, int angle, int moveNum, int holdTime, int intervalTime) {
+  // 全サーボをStopに戻す
+  servoLeft.write(ANGLE_STOP);
+  servoCenter.write(ANGLE_STOP);
+  servoRight.write(ANGLE_STOP);
   delay(100);
   
   Servo* targetServo;
   int pin;
   
-  switch(servoNum) {
-    case 1:
-      targetServo = &servo1;
-      pin = SERVO1_PIN;
-      break;
-    case 2:
-      targetServo = &servo2;
-      pin = SERVO2_PIN;
-      break;
-    case 3:
-      targetServo = &servo3;
-      pin = SERVO3_PIN;
-      break;
+  if (strcmp(position, "Left") == 0) {
+    targetServo = &servoLeft;
+    pin = SERVO_LEFT_PIN;
+  } else if (strcmp(position, "Center") == 0) {
+    targetServo = &servoCenter;
+    pin = SERVO_CENTER_PIN;
+  } else {
+    targetServo = &servoRight;
+    pin = SERVO_RIGHT_PIN;
   }
   
-  const char* angleName;
-  if (angle == ANGLE_45) {
-    angleName = "45deg";
-  } else if (angle == ANGLE_90) {
-    angleName = "90deg";
+  const char* strengthName;
+  if (angle == ANGLE_WEAK) {
+    strengthName = "Weak";
+  } else if (angle == ANGLE_STRONG) {
+    strengthName = "Strong";
   } else {
-    angleName = "0deg";
+    strengthName = "Stop";
   }
   
   M5.Display.clear();
@@ -148,24 +144,40 @@ void executePattern(int servoNum, int angle, int moveNum, int holdTime, int inte
   M5.Display.println("==============");
   M5.Display.println("");
   M5.Display.setTextSize(2);
-  M5.Display.printf("Servo %d\n", servoNum);
-  M5.Display.println(angleName);
+  M5.Display.printf("%s\n", position);
+  M5.Display.printf("%s\n", strengthName);
   M5.Display.setTextSize(1);
-  M5.Display.printf("G%d\n", pin);
+  M5.Display.printf("G%d: %ddeg\n", pin, angle);
   M5.Display.printf("Hold:%dms\n", holdTime);
   M5.Display.printf("Wait:%dms", intervalTime);
   
-  Serial.printf("Move %d/10: Servo%d G%d %s Hold:%dms Wait:%dms\n", 
-                moveNum, servoNum, pin, angleName, holdTime, intervalTime);
+  Serial.printf("Move %d/10: %s G%d %s (%ddeg) Hold:%dms Wait:%dms\n", 
+                moveNum, position, pin, strengthName, angle, holdTime, intervalTime);
   
   // 指定角度に移動して保持
   targetServo->write(angle);
   delay(holdTime);
   
-  // 0°に戻す
-  targetServo->write(ANGLE_0);
+  // Stopに戻す
+  targetServo->write(ANGLE_STOP);
   
-  delay(intervalTime);
+  // インターバル中は「None」を表示
+  if (intervalTime > 0) {
+    M5.Display.clear();
+    M5.Display.setCursor(0, 0);
+    M5.Display.setTextSize(1);
+    M5.Display.printf("Move %d/10\n", moveNum);
+    M5.Display.println("==============");
+    M5.Display.println("");
+    M5.Display.setTextSize(2);
+    M5.Display.println("None");
+    M5.Display.println("");
+    M5.Display.setTextSize(1);
+    M5.Display.printf("Wait:%dms", intervalTime);
+    
+    Serial.printf("  Interval: None (Wait:%dms)\n", intervalTime);
+    delay(intervalTime);
+  }
 }
 
 void run10Pattern() {
@@ -179,21 +191,21 @@ void run10Pattern() {
   Serial.println("\n=== 10 Pattern Fixed Sequence ===");
   
   // 固定の10パターン（順番と角度は固定、時間だけバラバラ）
-  executePattern(3, ANGLE_45, 1, patternHoldTimes[0], patternIntervals[0]);   // Servo3 45° 1800ms / 300ms
-  executePattern(1, ANGLE_90, 2, patternHoldTimes[1], patternIntervals[1]);   // Servo1 90° 2600ms / 100ms
-  executePattern(1, ANGLE_45, 3, patternHoldTimes[2], patternIntervals[2]);   // Servo1 45° 1200ms / 450ms
-  executePattern(2, ANGLE_90, 4, patternHoldTimes[3], patternIntervals[3]);   // Servo2 90° 2200ms / 200ms
-  executePattern(3, ANGLE_90, 5, patternHoldTimes[4], patternIntervals[4]);   // Servo3 90° 1500ms / 0ms
-  executePattern(2, ANGLE_45, 6, patternHoldTimes[5], patternIntervals[5]);   // Servo2 45° 2800ms / 350ms
-  executePattern(3, ANGLE_45, 7, patternHoldTimes[6], patternIntervals[6]);   // Servo3 45° 1000ms / 500ms
-  executePattern(3, ANGLE_45, 8, patternHoldTimes[7], patternIntervals[7]);   // Servo3 45° 2000ms / 150ms
-  executePattern(2, ANGLE_90, 9, patternHoldTimes[8], patternIntervals[8]);   // Servo2 90° 1400ms / 250ms
-  executePattern(1, ANGLE_90, 10, patternHoldTimes[9], patternIntervals[9]);  // Servo1 90° 2500ms / 50ms
+  executePattern("Right", ANGLE_WEAK, 1, patternHoldTimes[0], patternIntervals[0]);    // Right Weak 1800ms / 300ms
+  executePattern("Left", ANGLE_STRONG, 2, patternHoldTimes[1], patternIntervals[1]);   // Left Strong 2600ms / 100ms
+  executePattern("Left", ANGLE_WEAK, 3, patternHoldTimes[2], patternIntervals[2]);     // Left Weak 1200ms / 450ms
+  executePattern("Center", ANGLE_STRONG, 4, patternHoldTimes[3], patternIntervals[3]); // Center Strong 2200ms / 200ms
+  executePattern("Right", ANGLE_STRONG, 5, patternHoldTimes[4], patternIntervals[4]);  // Right Strong 1500ms / 0ms
+  executePattern("Center", ANGLE_WEAK, 6, patternHoldTimes[5], patternIntervals[5]);   // Center Weak 2800ms / 350ms
+  executePattern("Right", ANGLE_WEAK, 7, patternHoldTimes[6], patternIntervals[6]);    // Right Weak 1000ms / 500ms
+  executePattern("Right", ANGLE_WEAK, 8, patternHoldTimes[7], patternIntervals[7]);    // Right Weak 2000ms / 150ms
+  executePattern("Center", ANGLE_STRONG, 9, patternHoldTimes[8], patternIntervals[8]); // Center Strong 1400ms / 250ms
+  executePattern("Left", ANGLE_STRONG, 10, patternHoldTimes[9], patternIntervals[9]);  // Left Strong 2500ms / 50ms
   
-  // 全サーボを0°に戻す
-  servo1.write(ANGLE_0);
-  servo2.write(ANGLE_0);
-  servo3.write(ANGLE_0);
+  // 全サーボをStopに戻す
+  servoLeft.write(ANGLE_STOP);
+  servoCenter.write(ANGLE_STOP);
+  servoRight.write(ANGLE_STOP);
   
   Serial.println("=== 10 Pattern Complete ===\n");
   
@@ -218,17 +230,17 @@ void setup() {
   Serial.println("3 Servo Angle Auto Test");
   
   // サーボ初期化
-  Serial.printf("Init Servo1: Pin=%d\n", SERVO1_PIN);
-  servo1.attach(SERVO1_PIN);
-  servo1.write(ANGLE_0);
+  Serial.printf("Init Left Servo: Pin=%d\n", SERVO_LEFT_PIN);
+  servoLeft.attach(SERVO_LEFT_PIN);
+  servoLeft.write(ANGLE_STOP);
   
-  Serial.printf("Init Servo2: Pin=%d\n", SERVO2_PIN);
-  servo2.attach(SERVO2_PIN);
-  servo2.write(ANGLE_0);
+  Serial.printf("Init Center Servo: Pin=%d\n", SERVO_CENTER_PIN);
+  servoCenter.attach(SERVO_CENTER_PIN);
+  servoCenter.write(ANGLE_STOP);
   
-  Serial.printf("Init Servo3: Pin=%d\n", SERVO3_PIN);
-  servo3.attach(SERVO3_PIN);
-  servo3.write(ANGLE_0);
+  Serial.printf("Init Right Servo: Pin=%d\n", SERVO_RIGHT_PIN);
+  servoRight.attach(SERVO_RIGHT_PIN);
+  servoRight.write(ANGLE_STOP);
   
   Serial.println("Servo Init Complete");
   
@@ -238,13 +250,15 @@ void setup() {
   M5.Display.println("3 Servo Angle Test");
   M5.Display.println("==================");
   M5.Display.println("");
-  M5.Display.println("Short press:");
-  M5.Display.println(" Full test");
+  M5.Display.setTextSize(2);
+  M5.Display.println("None");
   M5.Display.println("");
-  M5.Display.println("Long press:");
-  M5.Display.println(" 10x pattern");
-  M5.Display.println("");
-  M5.Display.println("Press to start");
+  M5.Display.setTextSize(1);
+  M5.Display.println("Short: Full test");
+  M5.Display.println("Long: 10x pattern");
+  
+  Serial.println("\nShort press: Full test");
+  Serial.println("Long press: 10x pattern\n");
 }
 
 void loop() {
@@ -272,6 +286,20 @@ void loop() {
       Serial.printf("Short press detected (%lums)\n", pressDuration);
       runAllTests();
     }
+    
+    // テスト完了後、Noneを表示
+    M5.Display.clear();
+    M5.Display.setTextSize(1);
+    M5.Display.setCursor(0, 0);
+    M5.Display.println("3 Servo Angle Test");
+    M5.Display.println("==================");
+    M5.Display.println("");
+    M5.Display.setTextSize(2);
+    M5.Display.println("None");
+    M5.Display.println("");
+    M5.Display.setTextSize(1);
+    M5.Display.println("Short: Full test");
+    M5.Display.println("Long: 10x pattern");
   }
   
   delay(10);
