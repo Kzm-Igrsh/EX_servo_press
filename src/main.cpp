@@ -26,6 +26,14 @@ const int LONG_PRESS_TIME = 1000;  // 1秒以上で長押し
 const int patternHoldTimes[10] = {1800, 2600, 1200, 2200, 1500, 2800, 1000, 2000, 1400, 2500};  // ms
 const int patternIntervals[10] = {300, 100, 450, 200, 0, 350, 500, 150, 250, 50};  // ms (0-500ms)
 
+// ========================================
+// シリアル通信用ヘルパー関数
+// PC側のPython GUIが期待する厳密なフォーマットで出力
+// ========================================
+void sendStimMessage(const char* position, const char* strength) {
+  Serial.printf("%s,%s\n", position, strength);
+}
+
 void testServoAngles(Servo &servo, const char* position, int pin) {
   M5.Display.clear();
   M5.Display.setCursor(0, 0);
@@ -36,37 +44,48 @@ void testServoAngles(Servo &servo, const char* position, int pin) {
   M5.Display.printf("Pin: G%d\n", pin);
   M5.Display.println("");
   
-  Serial.printf("=== %s G%d Test ===\n", position, pin);
-  
   // Stop
   servo.write(ANGLE_STOP);
   M5.Display.fillRect(0, 80, 128, 48, BLACK);
   M5.Display.setCursor(0, 80);
   M5.Display.setTextSize(3);
   M5.Display.printf("Stop");
-  Serial.println("Angle: Stop (0 deg)");
   delay(HOLD_TIME);
   
-  // Weak
+  // ========================================
+  // Weak刺激開始 - PC側へメッセージ送信
+  // ========================================
+  sendStimMessage(position, "Weak");
   servo.write(ANGLE_WEAK);
   M5.Display.fillRect(0, 80, 128, 48, BLACK);
   M5.Display.setCursor(0, 80);
   M5.Display.setTextSize(3);
   M5.Display.printf("Weak");
-  Serial.println("Angle: Weak (45 deg)");
   delay(HOLD_TIME);
   
-  // Strong
+  // ========================================
+  // Weak終了 - インターバル開始
+  // ========================================
+  servo.write(ANGLE_STOP);
+  sendStimMessage("none", "none");
+  delay(500);
+  
+  // ========================================
+  // Strong刺激開始 - PC側へメッセージ送信
+  // ========================================
+  sendStimMessage(position, "Strong");
   servo.write(ANGLE_STRONG);
   M5.Display.fillRect(0, 80, 128, 48, BLACK);
   M5.Display.setCursor(0, 80);
   M5.Display.setTextSize(3);
   M5.Display.printf("Strong");
-  Serial.println("Angle: Strong (90 deg)");
   delay(HOLD_TIME);
   
-  // Stop
+  // ========================================
+  // Strong終了 - Stop
+  // ========================================
   servo.write(ANGLE_STOP);
+  sendStimMessage("none", "none");
   delay(500);
 }
 
@@ -77,8 +96,6 @@ void runAllTests() {
   M5.Display.println("Starting");
   M5.Display.println("Full Test");
   delay(1000);
-  
-  Serial.println("=== Starting Full Servo Test ===");
   
   // Left (G5)
   testServoAngles(servoLeft, "Left", SERVO_LEFT_PIN);
@@ -91,8 +108,6 @@ void runAllTests() {
   // Right (G7)
   testServoAngles(servoRight, "Right", SERVO_RIGHT_PIN);
   delay(500);
-  
-  Serial.println("=== Full Test Complete ===");
   
   M5.Display.clear();
   M5.Display.setCursor(0, 0);
@@ -137,6 +152,7 @@ void executePattern(const char* position, int angle, int moveNum, int holdTime, 
     strengthName = "Stop";
   }
   
+  // 画面表示
   M5.Display.clear();
   M5.Display.setCursor(0, 0);
   M5.Display.setTextSize(1);
@@ -151,8 +167,10 @@ void executePattern(const char* position, int angle, int moveNum, int holdTime, 
   M5.Display.printf("Hold:%dms\n", holdTime);
   M5.Display.printf("Wait:%dms", intervalTime);
   
-  Serial.printf("Move %d/20: %s G%d %s (%ddeg) Hold:%dms Wait:%dms\n", 
-                moveNum, position, pin, strengthName, angle, holdTime, intervalTime);
+  // ========================================
+  // 刺激開始 - PC側へメッセージ送信
+  // ========================================
+  sendStimMessage(position, strengthName);
   
   // 指定角度に移動して保持
   targetServo->write(angle);
@@ -161,8 +179,12 @@ void executePattern(const char* position, int angle, int moveNum, int holdTime, 
   // Stopに戻す
   targetServo->write(ANGLE_STOP);
   
-  // インターバル中は「None」を表示
+  // ========================================
+  // インターバル開始 - "none,none" を送信
+  // ========================================
   if (intervalTime > 0) {
+    sendStimMessage("none", "none");
+    
     M5.Display.clear();
     M5.Display.setCursor(0, 0);
     M5.Display.setTextSize(1);
@@ -175,8 +197,10 @@ void executePattern(const char* position, int angle, int moveNum, int holdTime, 
     M5.Display.setTextSize(1);
     M5.Display.printf("Wait:%dms", intervalTime);
     
-    Serial.printf("  Interval: None (Wait:%dms)\n", intervalTime);
     delay(intervalTime);
+  } else {
+    // インターバルが0msの場合も "none,none" を送信
+    sendStimMessage("none", "none");
   }
 }
 
@@ -187,8 +211,6 @@ void run20Pattern() {
   M5.Display.println("Starting");
   M5.Display.println("20x Pattern");
   delay(1000);
-  
-  Serial.println("\n=== 20 Pattern Fixed Sequence ===");
   
   // 1~10回目
   executePattern("Right", ANGLE_WEAK, 1, patternHoldTimes[0], patternIntervals[0]);    // Right Weak 1800ms / 300ms
@@ -219,8 +241,6 @@ void run20Pattern() {
   servoCenter.write(ANGLE_STOP);
   servoRight.write(ANGLE_STOP);
   
-  Serial.println("=== 20 Pattern Complete ===\n");
-  
   M5.Display.clear();
   M5.Display.setCursor(0, 0);
   M5.Display.setTextSize(2);
@@ -238,24 +258,20 @@ void setup() {
   auto cfg = M5.config();
   M5.begin(cfg);
   
+  // シリアル通信初期化（115200bps）
   Serial.begin(115200);
-  Serial.println("3 Servo Angle Auto Test");
   
-  // サーボ初期化
-  Serial.printf("Init Left Servo: Pin=%d\n", SERVO_LEFT_PIN);
+  // サーボ初期化（デバッグ出力なし）
   servoLeft.attach(SERVO_LEFT_PIN);
   servoLeft.write(ANGLE_STOP);
   
-  Serial.printf("Init Center Servo: Pin=%d\n", SERVO_CENTER_PIN);
   servoCenter.attach(SERVO_CENTER_PIN);
   servoCenter.write(ANGLE_STOP);
   
-  Serial.printf("Init Right Servo: Pin=%d\n", SERVO_RIGHT_PIN);
   servoRight.attach(SERVO_RIGHT_PIN);
   servoRight.write(ANGLE_STOP);
   
-  Serial.println("Servo Init Complete");
-  
+  // 初期画面表示
   M5.Display.clear();
   M5.Display.setTextSize(1);
   M5.Display.setCursor(0, 0);
@@ -268,9 +284,6 @@ void setup() {
   M5.Display.setTextSize(1);
   M5.Display.println("Short: Full test");
   M5.Display.println("Long: 20x pattern");
-  
-  Serial.println("\nShort press: Full test");
-  Serial.println("Long press: 20x pattern\n");
 }
 
 void loop() {
@@ -291,11 +304,9 @@ void loop() {
     
     if (pressDuration >= LONG_PRESS_TIME) {
       // 長押し：20パターン実行
-      Serial.printf("Long press detected (%lums)\n", pressDuration);
       run20Pattern();
     } else {
       // 短押し：フルテスト実行
-      Serial.printf("Short press detected (%lums)\n", pressDuration);
       runAllTests();
     }
     
